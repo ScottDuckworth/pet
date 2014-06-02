@@ -2,6 +2,7 @@
 
 import hashlib
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -22,6 +23,8 @@ CONFIG_DEFAULTS = {
 }
 
 config = configparser.SafeConfigParser(CONFIG_DEFAULTS)
+env_rx = re.compile('^[a-z0-9_]+$')
+env_forbidden = ('main', 'master', 'agent', 'user')
 
 
 def check_call(cmd, **kwargs):
@@ -185,7 +188,7 @@ def cgi_bitbucket(pi):
   for commit in data['commits']:
     commit_rev = commit['raw_node']
     branch = commit['branch']
-    if '/' in branch:
+    if not env_rx.match(branch) or branch in env_forbidden:
       continue
     branches.setdefault(branch, []).append(commit_rev)
   pi.call_backends(branches)
@@ -197,7 +200,7 @@ def cgi_github(pi):
   if not ref.startswith('refs/heads/'):
     return
   branch = ref[11:]
-  if '/' in branch:
+  if not env_rx.match(branch) or branch in env_forbidden:
     return
   commits = [commit['sha'] for commit in data['commits']]
   pi.call_backends({branch: commits})
