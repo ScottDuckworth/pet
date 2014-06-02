@@ -218,7 +218,7 @@ def cmd_cgi_backend(pi, args):
           refreshed = True
     pi.update_environment(branch)
 
-def main():
+def main(argv):
   import argparse
 
   class SecureStore(argparse.Action):
@@ -253,7 +253,7 @@ def main():
   parser_cgi_backend.set_defaults(func=cmd_cgi_backend)
   parser_cgi_backend.add_argument('targets', metavar='TARGET', nargs='*')
 
-  args = parser.parse_args()
+  args = parser.parse_args(argv)
   if args.user:
     syslog(LOG_NOTICE, "user=%s" % (args.user,))
   if args.config:
@@ -269,4 +269,4 @@ def main():
 
 
 if __name__ == '__main__':
-  main()
+  main(sys.argv[1:])
