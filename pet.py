@@ -67,15 +67,16 @@ class PuppetInstance(object):
 
   def cache_branch_has_commits(self, branch, commits):
     commits = set(commits)
-    try:
-      cmd = [self.git, 'rev-list', branch]
-      output = check_output(cmd, cwd=self.remote_cache_path)
-      for commit in output.splitlines():
-        commits.discard(commit)
-        if not commits:
-          return True
-    except subprocess.CalledProcessError:
-      pass
+    cmd = [self.git, 'branch', '--list', branch]
+    output = check_output(cmd, cwd=self.remote_cache_path)
+    if not output:
+      return False
+    cmd = [self.git, 'rev-list', branch]
+    output = check_output(cmd, cwd=self.remote_cache_path)
+    for commit in output.splitlines():
+      commits.discard(commit)
+      if not commits:
+        return True
     return False
 
   def call_backends(self, branches):
