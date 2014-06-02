@@ -187,7 +187,7 @@ def cgi_bitbucket(pi):
   import cgi
   import json
   form = cgi.FieldStorage()
-  payload = form['payload']
+  payload = form['payload'].value
   data = json.loads(payload)
   branches = {}
   for commit in data['commits']:
@@ -196,6 +196,8 @@ def cgi_bitbucket(pi):
     if not env_rx.match(branch) or branch in env_forbidden:
       continue
     branches.setdefault(branch, []).append(commit_rev)
+  print("Content-Type: text/plain")
+  print()
   pi.call_backends(branches)
 
 def cgi_github(pi):
@@ -208,6 +210,8 @@ def cgi_github(pi):
   if not env_rx.match(branch) or branch in env_forbidden:
     return
   commits = [commit['sha'] for commit in data['commits']]
+  print("Content-Type: text/plain")
+  print()
   pi.call_backends({branch: commits})
 
 def cmd_cgi_backend(pi, args):
