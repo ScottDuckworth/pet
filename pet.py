@@ -199,6 +199,7 @@ def cgi_bitbucket(pi):
     branches.setdefault(branch, []).append(commit_rev)
   print("Content-Type: text/plain")
   print()
+  sys.stdout.flush()
   pi.call_backends(branches)
 
 def cgi_github(pi):
@@ -213,6 +214,7 @@ def cgi_github(pi):
   commits = [commit['sha'] for commit in data['commits']]
   print("Content-Type: text/plain")
   print()
+  sys.stdout.flush()
   pi.call_backends({branch: commits})
 
 def cmd_cgi_backend(pi, args):
