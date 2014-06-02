@@ -59,7 +59,7 @@ class PuppetInstance(object):
   def refresh_cache(self):
     syslog(LOG_INFO, "refresh cache")
     if os.path.exists(self.remote_cache_path):
-      cmd = [self.git, 'fetch', '--quiet', '--prune', self.remote]
+      cmd = [self.git, 'fetch', '--quiet', '--prune']
       check_call(cmd, cwd=self.remote_cache_path)
     else:
       cmd = [self.git, 'clone', '--quiet', '--mirror', self.remote, self.remote_cache_path]
