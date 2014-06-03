@@ -243,7 +243,7 @@ def cmd_cgi_backend(pi, args):
       if env not in remote_environments:
         pi.delete_environment(env)
 
-def main(argv):
+def main():
   import argparse
 
   class SecureStore(argparse.Action):
@@ -278,7 +278,7 @@ def main(argv):
   parser_cgi_backend.set_defaults(func=cmd_cgi_backend)
   parser_cgi_backend.add_argument('targets', metavar='TARGET', nargs='*')
 
-  args = parser.parse_args(argv)
+  args = parser.parse_args()
   if args.user:
     syslog(LOG_NOTICE, "user=%s" % (args.user,))
   if args.config:
@@ -294,4 +294,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-  main(sys.argv[1:])
+  main()

@@ -1,9 +1,0 @@
-#!/usr/bin/env python
-
-import os
-import pet
-import shlex
-import sys
-
-argv = sys.argv[1:] + shlex.split(os.getenv('SSH_ORIGINAL_COMMAND', ''))
-pet.main(argv)
