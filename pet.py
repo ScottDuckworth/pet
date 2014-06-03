@@ -82,8 +82,7 @@ class PuppetInstance(object):
   def call_backends(self, branches):
     targets = []
     for branch, commits in branches.items():
-      if commits:
-        targets.append('%s:%s' % (branch, ','.join(commits)))
+      targets.append('%s:%s' % (branch, ','.join(commits)))
     for option in config.options(self.section):
       if option == 'backend' or option.startswith('backend.'):
         backend = config.get(self.section, option)
@@ -218,20 +217,31 @@ def cgi_github(pi):
   pi.call_backends({branch: commits})
 
 def cmd_cgi_backend(pi, args):
-  refreshed = False
-  for target in args.targets:
-    t = target.split(':', 1)
-    branch = t[0]
-    if not refreshed:
-      if len(t) == 1 or not t[1]:
-        pi.refresh_cache()
-        refreshed = True
-      else:
-        commits = t[1].split(',')
-        if not pi.cache_branch_has_commits(branch, commits):
+  if args.targets:
+    refreshed = False
+    for target in args.targets:
+      t = target.split(':', 1)
+      env = t[0]
+      if len(t) == 1:
+        commits = None
+        if not refreshed:
           pi.refresh_cache()
           refreshed = True
-    pi.update_environment(branch)
+        pi.update_environment(env)
+      elif t[1] == '':
+        pi.delete_environment(env)
+      else:
+        commits = t[1].split(',')
+        if not pi.cache_branch_has_commits(env, commits):
+          pi.refresh_cache()
+          refreshed = True
+        pi.update_environment(env)
+  else:
+    pi.refresh_cache()
+    remote_environments = frozenset(pi.remote_environments())
+    for env in pi.local_environments():
+      if env not in remote_environments:
+        pi.delete_environment(env)
 
 def main(argv):
   import argparse
