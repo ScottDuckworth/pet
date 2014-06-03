@@ -93,14 +93,21 @@ class PuppetInstance(object):
         except subprocess.CalledProcessError as e:
           syslog(LOG_ERR, "%s" % (e))
 
+  def active_rev(self, env):
+    envpath = os.path.join(self.environmentpath, env)
+    cmd = [self.git, 'rev-parse', 'HEAD']
+    return check_output(cmd, cwd=envpath).rstrip()
+
+  def cache_rev(self, env):
+    cmd = [self.git, 'rev-parse', env]
+    return check_output(cmd, cwd=self.remote_cache_path).rstrip()
+
   def update_environment(self, env):
     envpath = os.path.join(self.environmentpath, env)
     syslog(LOG_INFO, "updating environment %s at %s" % (env, envpath))
     if os.path.exists(envpath):
-      cmd = [self.git, 'rev-parse', 'HEAD']
-      old_rev = check_output(cmd, cwd=envpath).rstrip()
-      cmd = [self.git, 'rev-parse', env]
-      new_rev = check_output(cmd, cwd=self.remote_cache_path).rstrip()
+      old_rev = self.active_rev(env)
+      new_rev = self.cache_rev(env)
       if old_rev == new_rev:
         return
       msg = "UPDATE %s from %s to %s" % (env, old_rev[:7], new_rev[:7])
@@ -145,7 +152,15 @@ class PuppetInstance(object):
 def cmd_puppet(pi, args):
   sys.exit(pi.puppet_cmd(args.args))
 
-def cmd_update(pi, args):
+def cmd_environment_list(pi, args):
+  if args.environments:
+    for env in sorted(args.environments):
+      print("%-14s %s" % (env, pi.active_rev(env)))
+  else:
+    for env in sorted(pi.local_environments()):
+      print("%-14s %s" % (env, pi.active_rev(env)))
+
+def cmd_environment_update(pi, args):
   if args.refresh:
     pi.refresh_cache()
   remote_environments = frozenset(pi.remote_environments())
@@ -255,9 +270,13 @@ def main():
   parser = argparse.ArgumentParser()
   subparsers = parser.add_subparsers()
   parser_puppet = subparsers.add_parser('puppet')
-  parser_update = subparsers.add_parser('update')
+  parser_environment = subparsers.add_parser('environment')
   parser_cgi = subparsers.add_parser('cgi')
   parser_cgi_backend = subparsers.add_parser('cgi-backend')
+
+  subparsers_environment = parser_environment.add_subparsers()
+  parser_environment_list = subparsers_environment.add_parser('list')
+  parser_environment_update = subparsers_environment.add_parser('update')
 
   parser.add_argument('--config', metavar='CONFIG_FILE', action=SecureStore)
   parser.add_argument('--section', default='default', action=SecureStore)
@@ -267,16 +286,19 @@ def main():
   parser_puppet.set_defaults(func=cmd_puppet)
   parser_puppet.add_argument('args', nargs=argparse.REMAINDER)
 
-  parser_update.set_defaults(func=cmd_update)
-  parser_update.add_argument('--no-refresh', '-n', dest='refresh', action='store_false', default=True)
-  parser_update.add_argument('environments', metavar='ENVIRONMENT', nargs='*')
-
   parser_cgi.set_defaults(func=cmd_cgi)
   parser_cgi.add_argument('--format', '-f', choices=['bitbucket', 'github'])
   parser_cgi.add_argument('--user-agent-env', metavar='VARIABLE', default='HTTP_USER_AGENT')
 
   parser_cgi_backend.set_defaults(func=cmd_cgi_backend)
   parser_cgi_backend.add_argument('targets', metavar='TARGET', nargs='*')
+
+  parser_environment_list.set_defaults(func=cmd_environment_list)
+  parser_environment_list.add_argument('environments', metavar='ENVIRONMENT', nargs='*')
+
+  parser_environment_update.set_defaults(func=cmd_environment_update)
+  parser_environment_update.add_argument('--no-refresh', '-n', dest='refresh', action='store_false', default=True)
+  parser_environment_update.add_argument('environments', metavar='ENVIRONMENT', nargs='*')
 
   args = parser.parse_args()
   if args.user:
