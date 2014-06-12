@@ -177,6 +177,41 @@ def cmd_environment_update(pi, args):
       if env not in remote_environments:
         pi.delete_environment(env)
 
+def cmd_environment_same(pi, args):
+  verbose = args.verbose - args.quiet + 1
+  env1 = pi.active_rev(args.env1)
+  env2 = pi.active_rev(args.env2)
+  if env1 == env2:
+    if verbose >= 1:
+      print("%s and %s are the same" % (args.env1, args.env2))
+    return 0
+  else:
+    if verbose >= 1:
+      cmd = [pi.git, 'log', '--pretty=oneline', '%s..%s' % (env2, env1)]
+      ahead = check_output(cmd, cwd=pi.remote_cache_path).decode()
+      cmd = [pi.git, 'log', '--pretty=oneline', '%s..%s' % (env1, env2)]
+      behind = check_output(cmd, cwd=pi.remote_cache_path).decode()
+      diff = []
+      if ahead:
+        diff.append("%d ahead of" % len(ahead.splitlines()))
+      if behind:
+        diff.append("%d behind" % len(behind.splitlines()))
+      print("%s is %s %s" % (
+        args.env1,
+        " and ".join(diff),
+        args.env2,
+      ))
+      if verbose >= 2:
+        if ahead:
+          print()
+          print("Only in %s:" % args.env1)
+          print(ahead.rstrip())
+        if behind:
+          print()
+          print("Only in %s:" % args.env2)
+          print(behind.rstrip())
+    return 1
+
 def cmd_cgi(pi, args):
   format = args.format
   if format is None:
@@ -277,6 +312,7 @@ def main():
   subparsers_environment = parser_environment.add_subparsers()
   parser_environment_list = subparsers_environment.add_parser('list')
   parser_environment_update = subparsers_environment.add_parser('update')
+  parser_environment_same = subparsers_environment.add_parser('same')
 
   parser.add_argument('--config', metavar='CONFIG_FILE', action=SecureStore)
   parser.add_argument('--section', default='default', action=SecureStore)
@@ -300,6 +336,12 @@ def main():
   parser_environment_update.add_argument('--no-refresh', '-n', dest='refresh', action='store_false', default=True)
   parser_environment_update.add_argument('environments', metavar='ENVIRONMENT', nargs='*')
 
+  parser_environment_same.set_defaults(func=cmd_environment_same)
+  parser_environment_same.add_argument('--quiet', '-q', action='count', default=0)
+  parser_environment_same.add_argument('--verbose', '-v', action='count', default=0)
+  parser_environment_same.add_argument('env1')
+  parser_environment_same.add_argument('env2')
+
   args = parser.parse_args()
   if args.user:
     syslog(LOG_NOTICE, "user=%s" % (args.user,))
@@ -312,7 +354,8 @@ def main():
       os.path.expanduser('~/.pet.conf'),
     ])
   pi = PuppetInstance(args.section)
-  args.func(pi, args)
+  rc = args.func(pi, args)
+  sys.exit(rc or 0)
 
 
 if __name__ == '__main__':
