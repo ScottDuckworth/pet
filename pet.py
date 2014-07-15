@@ -144,6 +144,14 @@ class PuppetInstance(object):
     output = check_output(cmd, cwd=self.remote_cache_path).decode()
     return [line.lstrip('* ') for line in output.splitlines()]
 
+  def sync_environments(self):
+    remote_environments = frozenset(self.remote_environments())
+    for env in sorted(remote_environments):
+      self.update_environment(env)
+    for env in sorted(self.local_environments()):
+      if env not in remote_environments:
+        self.delete_environment(env)
+
   def puppet_cmd(self, args):
     cmd = shlex.split(self.puppet) + args
     return subprocess.call(cmd)
@@ -163,19 +171,15 @@ def cmd_environment_list(pi, args):
 def cmd_environment_update(pi, args):
   if args.refresh:
     pi.refresh_cache()
-  remote_environments = frozenset(pi.remote_environments())
   if args.environments:
+    remote_environments = frozenset(pi.remote_environments())
     for env in args.environments:
       if env in remote_environments:
         pi.update_environment(env)
       else:
         pi.delete_environment(env)
   else:
-    for env in sorted(remote_environments):
-      pi.update_environment(env)
-    for env in sorted(pi.local_environments()):
-      if env not in remote_environments:
-        pi.delete_environment(env)
+    pi.sync_environments()
 
 def cmd_environment_same(pi, args):
   verbose = args.verbose - args.quiet + 1
@@ -293,6 +297,14 @@ def cmd_cgi_backend(pi, args):
       if env not in remote_environments:
         pi.delete_environment(env)
 
+def git_handler(pi, args):
+  cmd = [pi.git, args.cmd, pi.remote_cache_path]
+  ret = subprocess.call(cmd)
+  if ret:
+    sys.exit(ret)
+  os.dup2(2, 1)
+  pi.sync_environments()
+
 def main():
   import argparse
 
@@ -308,6 +320,9 @@ def main():
   parser_environment = subparsers.add_parser('environment')
   parser_cgi = subparsers.add_parser('cgi')
   parser_cgi_backend = subparsers.add_parser('cgi-backend')
+  parser_git_receive_pack = subparsers.add_parser('git-receive-pack')
+  parser_git_upload_pack = subparsers.add_parser('git-upload-pack')
+  parser_git_upload_archive = subparsers.add_parser('git-upload-archive')
 
   subparsers_environment = parser_environment.add_subparsers()
   parser_environment_list = subparsers_environment.add_parser('list')
@@ -341,6 +356,15 @@ def main():
   parser_environment_same.add_argument('--verbose', '-v', action='count', default=0)
   parser_environment_same.add_argument('env1')
   parser_environment_same.add_argument('env2')
+
+  parser_git_receive_pack.set_defaults(func=git_handler, cmd='receive-pack')
+  parser_git_receive_pack.add_argument('directory')
+
+  parser_git_upload_pack.set_defaults(func=git_handler, cmd='upload-pack')
+  parser_git_upload_pack.add_argument('directory')
+
+  parser_git_upload_archive.set_defaults(func=git_handler, cmd='upload-archive')
+  parser_git_upload_archive.add_argument('directory')
 
   args = parser.parse_args()
   if args.user:
